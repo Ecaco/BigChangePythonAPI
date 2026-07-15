@@ -1,0 +1,3 @@
+DEFAULT_TIMEOUT = 30.0
+DEFAULT_BASE_URL = "https://api.bigchange.com"
+DEFAULT_API_VERSION = "v1"
