@@ -38,9 +38,30 @@ class ContactListResponse(BaseModel):
         populate_by_name=True,
     )
 
-    items: List[Contact]
+    items: list[dict]
     page_number: int
     page_item_count: int
+
+
+#up to here. Broken. Need to fix this 
+class ContactAccessHours(ContactListResponse):
+    model_config = ConfigDict(
+        alias_generator=to_camel,
+        populate_by_name=True,
+    )
+
+
+class ContactStopBody(BaseModel):
+    model_config = ConfigDict(
+        alias_generator=to_camel,
+        populate_by_name=True,
+    )
+
+    applies_to: str
+    status: str
+    stop_reason: str
+
+
 
 class ContactsResource:
     def __init__(self, transport) -> None:
@@ -101,17 +122,31 @@ class ContactsResource:
     
     # There isn't a native bulk update endpoint, so this is a custom implementation to loop and update each in bulk
     def bulk_update_contacts(self, updates: dict[int, dict], stop_on_failure: bool = False) -> BulkUpdateResult: # {contact_id: {field: value, ...}}
-        result = BulkUpdateResult()
+        result = self.BulkUpdateResult()
         results = []
         for contact_id, update_data in updates.items():
                 try:
                     data = self._transport.request("PATCH", f"/contacts/{contact_id}", json=update_data)
-                    contact = Contact.model_validate(data)
                     result.successful_updates.append(contact_id)
-                    results.append(contact)
+                    results.append(data)
                 except BigChangeError as e:
                     result.failed[contact_id] = e
                     if stop_on_failure:
-                        break
+                        break # Social housing
         return result
     
+    def list_site_hours(self, contact_id: int, query_params: dict | None = None) -> List[dict]:
+        response = self._transport.request("GET", f"/contacts/{contact_id}/accessHours", params=query_params)
+        return ContactAccessHours.model_validate(response)
+
+    def update_site_hours(self, contact_id: int, update_data: dict) -> List[dict]:
+        self._transport.request("PUT", f"/contacts/{contact_id}/accessHours", json=update_data)
+        print(f"Updated site hours for contact {contact_id} with data: {update_data}")
+    
+    def put_on_stop(self, contact_id: int, update_data: dict) -> ContactStopBody:
+        self._transport.request("PUT", f"/contacts/{contact_id}/stop", json=update_data)
+        print(f"Put contact {contact_id} on stop with data: {update_data}")
+
+    def unstop_contact(self, contact_id: int, update_data: dict) -> ContactStopBody:
+        self._transport.request("PUT", f"/contacts/{contact_id}/unstop", json=update_data)
+        print(f"Unstopped contact {contact_id} with data: {update_data}")
