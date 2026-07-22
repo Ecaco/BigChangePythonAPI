@@ -52,3 +52,17 @@ def test_get_returns_typed_contact(contacts):
     assert contact.postal_code == "LS15 6HU"         
     assert contact.created_at.year == 2022           
     assert contact.stopped_at is None
+
+
+@respx.mock
+def test_get_list_returns_typed_contact_list(contacts):
+    respx.get("https://api.test/v1/contacts").mock(
+        return_value=httpx.Response(200, json={"items": [CONTACT_PAYLOAD], "pageNumber": 1, "pageItemCount": 1})
+    )
+
+    contact_list = contacts.get_list_of_contacts()
+
+    assert isinstance(contact_list, ContactsResource.ContactListResponse)
+    assert len(contact_list.items) == 1
+    assert isinstance(contact_list.items[0], Contact)
+    assert contact_list.items[0].id == 5514123

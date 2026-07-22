@@ -40,3 +40,8 @@ class TransportError(BigChangeError):
     """Exception raised for transport errors."""
     def __init__(self, message: str):
         super().__init__(message)
+
+class NetworkError(TransportError):
+    """Exception raised for network-related errors."""
+    def __init__(self, message: str):
+        super().__init__(message)
