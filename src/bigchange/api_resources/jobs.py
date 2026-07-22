@@ -1,9 +1,14 @@
 from datetime import datetime
 from enum import StrEnum
+from logging import getLogger
+from uuid import UUID
 from ._helpers import iter_pages
 
-from pydantic import BaseModel, ConfigDict, Field
+
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 from pydantic.alias_generators import to_camel
+
+logger = getLogger(__name__)
 
 
 class JobStatus(StrEnum):
@@ -272,12 +277,217 @@ class JobPostBody(BaseModel):
     planned_duration: int | None = None
     reference: str | None = None
     description: str | None = None
-    person_id: str | None = None
+    person_id: UUID | None = None
     order_number: str | None = None
     job_group_id: int | None = None
     category_id: int | None = None
     custom_fields: list[dict] = Field(default_factory=list)
     site_contact_id: int | None = None
+
+
+class JobConstraintEnum(StrEnum):
+    JOB_MUST_START_AFTER = "jobMustStartAfter"
+    JOB_MUST_START_BEFORE = "jobMustStartBefore"
+    JOB_MUST_COMPLETE_BEFORE = "jobMustCompleteBefore"
+    JOB_RESOURCE = "jobResource"
+    JOB_RESOURCE_GROUP = "jobResourceGroup"
+    JOB_VEHICLE = "jobVehicle"
+    JOB_VEHICLE_GROUP = "jobVehicleGroup"
+    JOB_MUST_START_IN_AVAILABLE_HOURS = "jobMustStartInAvailableHours"
+    JOB_MUST_COMPLETE_IN_AVAILABLE_HOURS = "jobMustCompleteInAvailableHours"
+    JOB_REQUIRES_RESOURCE_SKILL = "jobRequiresResourceSkill"
+    JOB_REQUIRES_VEHICLE_ATTRIBUTE = "jobRequiresVehicleAttribute"
+
+
+class JobConstraintPostBody(BaseModel):
+    model_config = ConfigDict(alias_generator=to_camel, populate_by_name=True)
+
+
+    type: JobConstraintEnum
+    constraint_at: datetime | None = None
+    entity_id: int | None = None
+
+
+class JobFlagPostBody(BaseModel):
+    model_config = ConfigDict(alias_generator=to_camel, populate_by_name=True)
+
+    flag_id: int
+    owner: str
+    comment: str | None = None
+
+
+class JobLineItemPostBody(BaseModel):
+    model_config = ConfigDict(alias_generator=to_camel, populate_by_name=True)
+
+    quantity: float
+    contact_id: int | None = None
+    description: str | None = None
+    tax_id: int | None = None
+    unit_cost: float | None = Field(default=None, ge=0)
+    unit_selling_price: float | None = Field(default=None, ge=0)
+    nominal_code_id: int | None = None
+    department_code_id: int | None = None
+
+
+class JobLineItemUpdateBody(BaseModel):
+    model_config = ConfigDict(alias_generator=to_camel, populate_by_name=True)
+
+    quantity: float | None = None
+    description: str | None = None
+    tax_id: int | None = None
+    unit_cost: float | None = Field(default=None, ge=0)
+    unit_selling_price: float | None = Field(default=None, ge=0)
+    nominal_code_id: int | None = None
+    department_code_id: int | None = None
+
+
+class JobStockActionWrite(StrEnum):
+    NO_MOVEMENT = "noMovement"
+    BROUGHT_AND_LEFT = "broughtAndLeft"
+    BROUGHT_AND_TAKEN_BACK = "broughtAndTakenBack"
+    ON_SITE_AND_TAKEN_BACK = "onSiteAndTakenBack"
+    ON_SITE_AND_LEFT = "onSiteAndLeft"
+    USED_IN_STOCK = "usedInStock"
+
+
+class JobStockPostBody(BaseModel):
+    model_config = ConfigDict(alias_generator=to_camel, populate_by_name=True)
+
+    stock_details_id: int | None = None
+    stock_item_id: int | None = None
+    action: JobStockActionWrite | None = None
+    quantity_planned: float | None = None
+    pickup_contact_id: int | None = None
+    drop_off_contact_id: int | None = None
+    is_delivered_to_be_sold: bool | None = None
+    is_equipment_at_drop_off: bool | None = None
+
+
+class JobUpdateBody(BaseModel):
+    model_config = ConfigDict(alias_generator=to_camel, populate_by_name=True)
+
+    planned_duration: int | None = None
+    reference: str | None = None
+    person_id: UUID | None = None
+    order_number: str | None = None
+    job_group_id: int | None = None
+    category_id: int | None = None
+    is_financially_complete: bool | None = None
+    is_actioned: bool | None = None
+    office_notes: str | None = None
+    custom_fields: list[dict] | None = None
+    site_contact_id: int | None = None
+
+
+class JobCancelBody(BaseModel):
+    model_config = ConfigDict(alias_generator=to_camel, populate_by_name=True)
+
+    reason: str | None = None
+
+class JobResultEnum(StrEnum):
+    COMPLETED_OK = "completedOk"
+    COMPLETED_WITH_ISSUES = "completedWithIssues"
+
+
+class JobResultBody(BaseModel):
+    model_config = ConfigDict(alias_generator=to_camel, populate_by_name=True)
+
+    status: JobResultEnum
+    result: str | None = None
+    status_modified_at: datetime | None = None
+
+    @model_validator(mode="after")
+    def _result_required_for_completed_ok(self):
+        if self.status is JobResultEnum.COMPLETED_OK and self.result is None:
+            raise ValueError("result is required when status is completedOk")
+        return self
+
+class JobScheduleBody(BaseModel):
+    model_config = ConfigDict(alias_generator=to_camel, populate_by_name=True)
+
+    resource_id: int | None = None
+    vehicle_id: int | None = None
+    planned_start_at: datetime | None = None
+
+class JobStartBody(BaseModel):
+    model_config = ConfigDict(alias_generator=to_camel, populate_by_name=True)
+
+    comment: str | None = None
+    status_modified_at: datetime | None = None
+
+
+CFG = ConfigDict(alias_generator=to_camel, populate_by_name=True, extra="forbid")
+
+class WriteWorksheetAnswerBoolean(BaseModel):
+    model_config = CFG
+    boolean_value: bool
+
+class WriteWorksheetAnswerCost(BaseModel):
+    model_config = CFG
+    name: str
+    quantity: float
+    unit_selling_price: float
+    tax_percentage: float
+
+class WriteWorksheetAnswerDate(BaseModel):
+    model_config = CFG
+    date: datetime.date
+    time: datetime.time | None = None
+
+class WriteWorksheetAnswerDecimal(BaseModel):
+    model_config = CFG
+    decimal_value: float
+
+class WriteWorksheetAnswerInteger(BaseModel):
+    model_config = CFG
+    integer_value: int
+
+class WriteWorksheetAnswerListMultipleIcon(BaseModel):
+    model_config = CFG
+    selected_item_ids: list[str]
+
+class WriteWorksheetAnswerListSingleIcon(BaseModel):
+    model_config = CFG
+    selected_item_id: str
+
+class WriteWorksheetAnswerListMultipleText(BaseModel):
+    model_config = CFG
+    selected_item_ids: list[str]
+
+class WriteWorksheetAnswerListSingleText(BaseModel):
+    model_config = CFG
+    selected_item_id: str
+
+class WriteWorksheetAnswerText(BaseModel):
+    model_config = CFG
+    string_value: str
+
+class WriteWorksheetAnswerTime(BaseModel):
+    model_config = CFG
+    time: datetime.time
+
+WriteWorksheetAnswer = (
+    WriteWorksheetAnswerBoolean
+    | WriteWorksheetAnswerCost
+    | WriteWorksheetAnswerDate
+    | WriteWorksheetAnswerDecimal
+    | WriteWorksheetAnswerInteger
+    | WriteWorksheetAnswerListMultipleIcon
+    | WriteWorksheetAnswerListSingleIcon
+    | WriteWorksheetAnswerListMultipleText
+    | WriteWorksheetAnswerListSingleText
+    | WriteWorksheetAnswerText
+    | WriteWorksheetAnswerTime
+)
+
+class WorksheetAnswerPostBody(BaseModel):
+    model_config = CFG
+    note: str | None = None
+    answer: WriteWorksheetAnswer | None = None
+
+
+
+
 
 
 class JobResource:
@@ -404,24 +614,160 @@ class JobResource:
         self._transport.request(
             "POST",
             f"/jobGroups/{group_id}/jobFlags",
-            json=body.model_dump(by_alias=True, exclude_unset=True),
+            json=body.model_dump(by_alias=True, exclude_unset=True, mode="json"),
         )
 
-    def create_job(self, job_data: JobPostBody | dict) -> Job:
+    def create_job(self, job_data: JobPostBody | dict) -> int:
         """
-        Creates a new job.
+        Creates a new job and returns the id of the created job. returns the id of the created job.
         """
         body = JobPostBody.model_validate(job_data)
         response = self._transport.request(
             "POST",
             "/jobs",
-            json=body.model_dump(by_alias=True, exclude_unset=True),
+            json=body.model_dump(by_alias=True, exclude_unset=True, mode="json"),
         )
-        return Job.model_validate(response)
+        return response["id"]
 
-    
+    def create_job_constraint(self, job_id: int, constraint_data: JobConstraintPostBody | dict) -> int:
+        """
+        Creates a new job constraint and returns the id of the created constraint.
+        """
+        body = JobConstraintPostBody.model_validate(constraint_data)
+        response = self._transport.request(
+            "POST",
+            f"/jobs/{job_id}/constraints",
+            json=body.model_dump(by_alias=True, exclude_unset=True, mode="json"),
+        )
+        return response["id"]
 
-    
+    def create_job_flag(self, job_id: int, flag_data: JobFlagPostBody | dict) -> int:
+        """
+        Creates a new job flag and returns the id of the created flag.
+        """
+        body = JobFlagPostBody.model_validate(flag_data)
+        response = self._transport.request(
+            "POST",
+            f"/jobs/{job_id}/flags",
+            json=body.model_dump(by_alias=True, exclude_unset=True, mode="json"),
+        )
+        return response["id"]
+
+    def create_job_line_item(self, job_id: int, line_item_data: JobLineItemPostBody | dict) -> int:
+        """
+        Creates a new job line item and returns the id of the created line item.
+        """
+        body = JobLineItemPostBody.model_validate(line_item_data)
+        response = self._transport.request(
+            "POST",
+            f"/jobs/{job_id}/lineItems",
+            json=body.model_dump(by_alias=True, exclude_unset=True, mode="json"),
+        )
+        return response["id"]
+
+
+
+    def create_job_stock(self, job_id: int, stock_data: JobStockPostBody | dict) -> int:
+        """
+        Creates a new job stock and returns the id of the created job stock.
+        Job stock cannot be created for a job with cancelled status.
+        """
+        body = JobStockPostBody.model_validate(stock_data)
+        response = self._transport.request(
+            "POST",
+            f"/jobs/{job_id}/stock",
+            json=body.model_dump(by_alias=True, exclude_unset=True, mode="json"),
+        )
+        return response["id"]
+
+
+############## PATCH
+
+    def update_job(self, job_id: int, update_data: JobUpdateBody | dict) -> None:
+        """
+        Updates an existing job with the provided data.
+        """
+        self._transport.request(
+            "PATCH",
+            f"/jobs/{job_id}",
+            json=update_data.model_dump(by_alias=True, exclude_unset=True, mode="json") if isinstance(update_data, JobUpdateBody) else update_data,
+        )
+        logger.info(f"Updated job {job_id} with data: {update_data}")
+
+
+    def update_job_line_item(
+        self, job_id: int, line_item_id: int, line_item_data: JobLineItemUpdateBody | dict
+    ) -> None:
+        """
+        Updates a single job line item.
+        Only the fields supplied are sent; omitted fields retain their current value.
+        Pass None explicitly on a nullable field to unset it.
+        """
+        body = JobLineItemUpdateBody.model_validate(line_item_data)
+        self._transport.request(
+            "PATCH",
+            f"/jobs/{job_id}/lineItems/{line_item_id}",
+            json=body.model_dump(by_alias=True, exclude_unset=True, mode="json"),
+        )
+
+################ PUTS
+
+    def cancel_job(self, job_id: int, cancel_data: JobCancelBody | dict | None = None) -> None:
+        """
+        Cancels a job. This is a PUT request because it is an idempotent operation.
+        """
+        self._transport.request(
+            "PUT",
+            f"/jobs/{job_id}/cancel",
+            json=cancel_data.model_dump(by_alias=True, exclude_unset=True, mode="json") if isinstance(cancel_data, JobCancelBody) else cancel_data,
+        )
+
+    def set_job_result(self, job_id: int, result_data: JobResultBody | dict) -> None:
+        """
+        Sets the result of a job.
+
+        status must be completedOk or completedWithIssues - the API rejects any
+        other value against its JobResult enum.
+
+        result is required when status is completedOk, optional otherwise, and
+        must exactly match a valid result string for the job type and status.
+
+        The job must already be in 'started' status. A job in any other status
+        (e.g. New) is rejected with a 422.
+        """
+        body = JobResultBody.model_validate(result_data)
+        self._transport.request(
+            "PUT",
+            f"/jobs/{job_id}/result",
+            json=body.model_dump(by_alias=True, exclude_unset=True, mode="json"),
+        )
+
+    def schedule_job(self, job_id: int, schedule_data: JobScheduleBody | dict) -> None:
+        """
+        Schedules a job with the provided data. All 
+        fields are nullable, so you can send an empty body to unschedule a job.
+
+        """
+        body = JobScheduleBody.model_validate(schedule_data)
+        self._transport.request(
+            "PUT",
+            f"/jobs/{job_id}/schedule",
+            json=body.model_dump(by_alias=True, exclude_unset=True, mode="json"),
+        )
+
+    def start_job(self, job_id: int, start_data: JobStartBody | dict) -> None:
+        """
+        Starts a job with the provided data. All 
+        fields are nullable, so you can send an empty body to start a, with the time 
+        being set to the current time. You can also provide a comment and a specific time if desired.
+
+        """
+        body = JobStartBody.model_validate(start_data)
+        self._transport.request(
+            "PUT",
+            f"/jobs/{job_id}/start",
+            json=body.model_dump(by_alias=True, exclude_unset=True, mode="json"),
+        )
 
     
 
