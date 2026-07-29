@@ -39,3 +39,5 @@ def test_get_job_returns_job(jobs):
     assert job.id == job_id
     assert job.reference == "JOB-12345"
     assert job.status == "in_progress"
+
+@respx.mock

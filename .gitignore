@@ -3,3 +3,5 @@
 **/__pycache__/
 .venv
 .pytest_cache/
+*TESTS_CHECKLIST.md
+*API_analysis.md

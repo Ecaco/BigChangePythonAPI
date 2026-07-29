@@ -42,6 +42,7 @@ class JobTypeResource:
     def get_job_types(self, query_params=None, page_size=100):
         return list(iter_pages(self._transport, "/jobTypes", JobTypeListResponse, query_params=query_params, page_size=page_size))
 
+
     def get_job_type(self, job_type_id: int) -> JobType:
         data = self._transport.request("GET", f"/jobTypes/{job_type_id}")
         return JobType.model_validate(data)
