@@ -10,13 +10,10 @@ from ._helpers import iter_pages
 from ._helpers import BulkResult
 
 logger = getLogger(__name__)
-
+CFG = ConfigDict(alias_generator=to_camel, populate_by_name=True)
 
 class Contact(BaseModel):
-    model_config = ConfigDict(
-        alias_generator=to_camel,
-        populate_by_name=True,
-    )
+    model_config = CFG
 
     id: int
     created_at: datetime
@@ -38,29 +35,30 @@ class Contact(BaseModel):
     page_size: int | None = None
 
 class ContactListResponse(BaseModel):
-    model_config = ConfigDict(
-        alias_generator=to_camel,
-        populate_by_name=True,
-    )
+    model_config = CFG
 
     items: list[Contact]
     page_number: int
     page_item_count: int
 
+class ContactAccessFields(BaseModel):
+    model_config = CFG
 
-#up to here. Broken. Need to fix this 
-class ContactAccessHours(ContactListResponse):
-    model_config = ConfigDict(
-        alias_generator=to_camel,
-        populate_by_name=True,
-    )
+    day_of_week: str
+    start: str
+    stop: str
+
+
+class ContactAccessHours(BaseModel):
+    model_config = CFG
+
+    items: list[ContactAccessFields]
+    page_number: int
+    page_item_count: int
 
 
 class ContactStopBody(BaseModel):
-    model_config = ConfigDict(
-        alias_generator=to_camel,
-        populate_by_name=True,
-    )
+    model_config = CFG
 
     applies_to: str
     status: str

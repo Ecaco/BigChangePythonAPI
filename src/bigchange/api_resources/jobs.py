@@ -1,8 +1,9 @@
-from datetime import datetime
+from datetime import datetime, date as DateType, time as TimeType
 from enum import StrEnum
 from logging import getLogger
 from uuid import UUID
-from ._helpers import iter_pages
+from ._helpers import iter_pages, BulkResult
+from bigchange.exception import BigChangeError
 
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
@@ -431,8 +432,8 @@ class WriteWorksheetAnswerCost(BaseModel):
 
 class WriteWorksheetAnswerDate(BaseModel):
     model_config = CFG
-    date: datetime.date
-    time: datetime.time | None = None
+    date: DateType
+    time: TimeType | None = None
 
 class WriteWorksheetAnswerDecimal(BaseModel):
     model_config = CFG
@@ -464,7 +465,7 @@ class WriteWorksheetAnswerText(BaseModel):
 
 class WriteWorksheetAnswerTime(BaseModel):
     model_config = CFG
-    time: datetime.time
+    time: TimeType
 
 WriteWorksheetAnswer = (
     WriteWorksheetAnswerBoolean
@@ -480,7 +481,7 @@ WriteWorksheetAnswer = (
     | WriteWorksheetAnswerTime
 )
 
-class WorksheetAnswerPostBody(BaseModel):
+class WorksheetAnswerPutBody(BaseModel):
     model_config = CFG
     note: str | None = None
     answer: WriteWorksheetAnswer | None = None
@@ -768,6 +769,20 @@ class JobResource:
             f"/jobs/{job_id}/start",
             json=body.model_dump(by_alias=True, exclude_unset=True, mode="json"),
         )
+
+
+    def set_worksheet_answers(self, job_id, answers: dict[int, WorksheetAnswerPutBody | dict],
+                          stop_on_failure: bool = False) -> BulkResult:
+        result = BulkResult()
+        for question_id, data in answers.items():
+            try:
+                self.set_worksheet_answer(job_id, question_id, data)
+                result.success.append(question_id)
+            except BigChangeError as e:
+                result.failed[question_id] = e
+                if stop_on_failure:
+                    break
+        return result
 
     
 
